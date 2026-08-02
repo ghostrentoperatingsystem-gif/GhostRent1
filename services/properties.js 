@@ -1,0 +1,193 @@
+import { supabase } from '@/lib/supabase-browser'
+
+export async function getPublicProperties(listingType, filters = {}) {
+  try {
+    let query = supabase
+      .from('properties')
+      .select('*, profiles!owner_id(full_name, avatar_url)')
+      .eq('status', 'approved')
+      .eq('published', true)
+      .eq('listing_type', listingType)
+      .order('created_at', { ascending: false })
+
+    if (filters.city) query = query.ilike('city', `%${filters.city}%`)
+    if (filters.area) query = query.ilike('area', `%${filters.area}%`)
+    if (filters.minPrice) query = query.gte('price', parseFloat(filters.minPrice))
+    if (filters.maxPrice) query = query.lte('price', parseFloat(filters.maxPrice))
+    if (filters.bedrooms) query = query.eq('bedrooms', parseInt(filters.bedrooms))
+    if (filters.bathrooms) query = query.eq('bathrooms', parseInt(filters.bathrooms))
+
+    const { data, error } = await query
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.error('getPublicProperties error:', err)
+    return []
+  }
+}
+
+export async function getMyProperties(ownerId) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('owner_id', ownerId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data || []
+  } catch (err) {
+    console.error('getMyProperties error:', err)
+    return []
+  }
+}
+
+export async function getPropertyById(id) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .select('*, profiles!owner_id(full_name, phone, email, avatar_url)')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('getPropertyById error:', err)
+    return null
+  }
+}
+
+export async function createProperty(payload) {
+  const required = ['title', 'listing_type', 'price', 'owner_id']
+  const missing = required.filter(field => !payload[field])
+  if (missing.length > 0) {
+    throw new Error(`Missing required fields: ${missing.join(', ')}`)
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .insert([{ ...payload, status: 'pending', published: false }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('createProperty error:', err)
+    throw err
+  }
+}
+
+export async function updateProperty(id, updates) {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } catch (err) {
+    console.error('updateProperty error:', err)
+    throw err
+  }
+}
+
+export async function deleteProperty(id) {
+  try {
+    const { error } = await supabase
+      .from('properties')
+      .update({ status: 'expired', published: false })
+      .eq('id', id)
+    if (error) throw error
+  } catch (err) {
+    console.error('deleteProperty error:', err)
+    throw err
+  }
+}
+
+export async function uploadPropertyImages(propertyId, files) {
+  const MAX_SIZE = 5 * 1024 * 1024
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+  const uploadedUrls = []
+
+  for (const file of files) {
+    try {
+      if (file.size > MAX_SIZE) {
+        console.warn(`File ${file.name} too large, skipping`)
+        continue
+      }
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        console.warn(`File ${file.name} invalid type, skipping`)
+        continue
+      }
+
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${propertyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+      
+      const { data, error } = await supabase.storage
+        .from('property-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (error) {
+        console.error('Upload error:', error)
+        continue
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('property-images')
+        .getPublicUrl(fileName)
+
+      uploadedUrls.push(urlData.publicUrl)
+    } catch (err) {
+      console.error('Upload error:', err)
+    }
+  }
+
+  return uploadedUrls
+}
+
+export async function toggleSavedProperty(userId, propertyId) {
+  try {
+    const { data: existing } = await supabase
+      .from('saved_properties')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('property_id', propertyId)
+      .single()
+
+    if (existing) {
+      await supabase
+        .from('saved_properties')
+        .delete()
+        .eq('user_id', userId)
+        .eq('property_id', propertyId)
+      return { saved: false }
+    } else {
+      await supabase
+        .from('saved_properties')
+        .insert([{ user_id: userId, property_id: propertyId }])
+      return { saved: true }
+    }
+  } catch (err) {
+    console.error('toggleSavedProperty error:', err)
+    return { saved: false, error: err }
+  }
+}
+
+export async function getSavedProperties(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('saved_properties')
+      .select('property_id, properties(*)')
+      .eq('user_id', userId)
+    if (error) throw error
+    return data?.map(item => item.properties) || []
+  } catch (err) {
+    console.error('getSavedProperties error:', err)
+    return []
+  }
+}
