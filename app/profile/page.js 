@@ -1,0 +1,85 @@
+'use client'
+
+import { useAuth } from '@/components/AuthProvider'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import BottomNav from '@/components/BottomNav'
+import BackHeader from '@/components/BackHeader'
+import { User, Settings, HelpCircle, LogOut, ChevronRight, Eye, Heart, Home } from 'lucide-react'
+import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase-browser'
+
+export default function ProfilePage() {
+  const { user, profile, signOut } = useAuth()
+  const [stats, setStats] = useState({ views: 0, likes: 0 })
+
+  useEffect(() => {
+    if (profile?.role === 'landlord') {
+      loadLandlordStats()
+    }
+  }, [profile])
+
+  const loadLandlordStats = async () => {
+    if (!profile) return
+    const { data } = await supabase
+      .from('properties')
+      .select('views_count')
+      .eq('owner_id', profile.id)
+    
+    const totalViews = data?.reduce((sum, p) => sum + (p.views_count || 0), 0) || 0
+    setStats({ views: totalViews, likes: 0 })
+  }
+
+  return (
+    <ProtectedRoute requireRole>
+      <div className="min-h-screen bg-paper pb-24">
+        <BackHeader title="Profile" />
+
+        {/* Profile header */}
+        <div className="bg-white p-6 text-center border-b border-line">
+          <div className="w-20 h-20 rounded-full bg-signal/10 flex items-center justify-center mx-auto text-signal text-2xl font-bold">
+            {profile?.full_name?.[0] || '?'}
+          </div>
+          <h2 className="font-semibold text-lg mt-2">{profile?.full_name || 'User'}</h2>
+          <p className="text-sm text-muted capitalize">{profile?.role || 'No role'}</p>
+          {profile?.role === 'landlord' && (
+            <div className="flex justify-center gap-6 mt-3 text-sm">
+              <div>
+                <p className="font-bold text-signal">{stats.views}</p>
+                <p className="text-xs text-muted">Views</p>
+              </div>
+              <div>
+                <p className="font-bold text-signal">{stats.likes}</p>
+                <p className="text-xs text-muted">Likes</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Menu items */}
+        <div className="p-4 space-y-2">
+          <Link href="/profile/settings" className="flex items-center gap-3 p-3 bg-white rounded-card border border-line hover:shadow-md transition">
+            <Settings className="w-5 h-5 text-muted" />
+            <span className="flex-1">Account Settings</span>
+            <ChevronRight className="w-4 h-4 text-muted" />
+          </Link>
+
+          <Link href="/profile/help" className="flex items-center gap-3 p-3 bg-white rounded-card border border-line hover:shadow-md transition">
+            <HelpCircle className="w-5 h-5 text-muted" />
+            <span className="flex-1">Get Help</span>
+            <ChevronRight className="w-4 h-4 text-muted" />
+          </Link>
+
+          <button
+            onClick={signOut}
+            className="flex items-center gap-3 p-3 bg-white rounded-card border border-line hover:shadow-md transition w-full text-left text-rust"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className="flex-1">Log out</span>
+          </button>
+        </div>
+      </div>
+      <BottomNav />
+    </ProtectedRoute>
+  )
+}
