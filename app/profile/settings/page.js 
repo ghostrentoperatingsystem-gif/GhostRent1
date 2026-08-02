@@ -1,0 +1,55 @@
+'use client'
+
+import ProtectedRoute from '@/components/ProtectedRoute'
+import BackHeader from '@/components/BackHeader'
+import BottomNav from '@/components/BottomNav'
+import SettingsRow from '@/components/SettingsRow'
+import { useAuth } from '@/components/AuthProvider'
+import Link from 'next/link'
+import { Bell, Lock, CreditCard, Eye, Accessibility, User, Shield } from 'lucide-react'
+
+export default function SettingsPage() {
+  const { profile } = useAuth()
+
+  const settingsItems = [
+    { label: 'Personal information', description: 'Name, email, phone', href: '/profile/settings/personal', icon: User },
+    { label: 'Notifications', description: 'Push, email, SMS alerts', href: '/profile/settings/notifications', icon: Bell },
+    { label: 'Privacy', description: 'Share phone, WhatsApp, search', href: '/profile/settings/privacy', icon: Eye },
+    { label: 'Login & Security', description: '2FA, biometric, sessions', href: '/profile/settings/security', icon: Lock },
+    { label: 'Payments & Payouts', description: 'Cards, bank account', href: '/profile/settings/payments', icon: CreditCard },
+    { label: 'Accessibility', description: 'Larger text, high contrast', href: '/profile/settings/accessibility', icon: Accessibility },
+  ]
+
+  return (
+    <ProtectedRoute requireRole>
+      <div className="min-h-screen bg-paper pb-24">
+        <BackHeader title="Settings" />
+        
+        <div className="p-4 space-y-4">
+          <div className="bg-white rounded-card border border-line overflow-hidden">
+            {settingsItems.map((item, index) => (
+              <Link key={item.href} href={item.href}>
+                <div className={index > 0 ? 'border-t border-line' : ''}>
+                  <SettingsRow
+                    label={item.label}
+                    description={item.description}
+                    icon={item.icon}
+                    onClick={() => {}}
+                  />
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="bg-white rounded-card border border-line p-4">
+            <p className="text-xs text-muted text-center">
+              GhostRent OS v1.0 • {profile?.email}
+            </p>
+          </div>
+        </div>
+        
+        <BottomNav />
+      </div>
+    </ProtectedRoute>
+  )
+}
