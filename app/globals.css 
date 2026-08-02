@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #f8f9fa;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #1a1a2e;
+}
+
+input, textarea, select {
+  @apply border border-line rounded-card px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-signal transition;
+}
+
+.btn-primary {
+  @apply bg-signal text-white px-6 py-2 rounded-card hover:bg-signalDark transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply bg-paper text-ink px-6 py-2 rounded-card hover:bg-line transition border border-line;
+}
+
+.btn-danger {
+  @apply bg-rust text-white px-6 py-2 rounded-card hover:bg-red-700 transition;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Safe area padding for notched phones */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
