@@ -1,0 +1,184 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import ProtectedRoute from '@/components/ProtectedRoute'
+import { useAuth } from '@/components/AuthProvider'
+import { getMyProperties, createProperty, updateProperty, deleteProperty, uploadPropertyImages } from '@/services/properties'
+import PropertyCard from '@/components/PropertyCard'
+import BottomNav from '@/components/BottomNav'
+import AddPropertyModal from '@/components/AddPropertyModal'
+import { Plus, Loader2, Home, FileText, Clock, CheckCircle, XCircle } from 'lucide-react'
+
+export default function LandlordPage() {
+  const { user, profile } = useAuth()
+  const [properties, setProperties] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [tab, setTab] = useState('all')
+
+  useEffect(() => {
+    if (profile) loadProperties()
+  }, [profile])
+
+  const loadProperties = async () => {
+    setLoading(true)
+    const data = await getMyProperties(profile.id)
+    setProperties(data || [])
+    setLoading(false)
+  }
+
+  const handleAddProperty = async (formData, images) => {
+    try {
+      const payload = {
+        ...formData,
+        owner_id: profile.id,
+        status: 'pending',
+        published: false,
+      }
+      
+      const newProperty = await createProperty(payload)
+      
+      if (images && images.length > 0) {
+        const urls = await uploadPropertyImages(newProperty.id, images)
+        await updateProperty(newProperty.id, { images: urls })
+      }
+      
+      await loadProperties()
+      setShowModal(false)
+    } catch (err) {
+      alert('Error creating property: ' + err.message)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Are you sure you want to delete this property?')) return
+    try {
+      await deleteProperty(id)
+      await loadProperties()
+    } catch (err) {
+      alert('Error deleting property: ' + err.message)
+    }
+  }
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'approved': return <CheckCircle className="w-4 h-4 text-green-500" />
+      case 'pending': return <Clock className="w-4 h-4 text-yellow-500" />
+      case 'draft': return <FileText className="w-4 h-4 text-gray-500" />
+      case 'rejected': return <XCircle className="w-4 h-4 text-red-500" />
+      default: return <FileText className="w-4 h-4 text-muted" />
+    }
+  }
+
+  const filteredProperties = properties.filter(p => {
+    if (tab === 'all') return true
+    return p.status === tab
+  })
+
+  const tabs = [
+    { label: 'All', value: 'all' },
+    { label: 'Active', value: 'approved' },
+    { label: 'Draft', value: 'draft' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Rejected', value: 'rejected' },
+  ]
+
+  return (
+    <ProtectedRoute requireRole>
+      <div className="max-w-4xl mx-auto p-4 pb-24">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="font-display text-2xl font-bold">My Properties</h1>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Property
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+          <div className="bg-white rounded-card border border-line p-3 text-center">
+            <p className="text-2xl font-bold text-signal">{properties.length}</p>
+            <p className="text-xs text-muted">Total</p>
+          </div>
+          <div className="bg-white rounded-card border border-line p-3 text-center">
+            <p className="text-2xl font-bold text-green-600">
+              {properties.filter(p => p.status === 'approved').length}
+            </p>
+            <p className="text-xs text-muted">Active</p>
+          </div>
+          <div className="bg-white rounded-card border border-line p-3 text-center">
+            <p className="text-2xl font-bold text-yellow-600">
+              {properties.filter(p => p.status === 'pending').length}
+            </p>
+            <p className="text-xs text-muted">Pending</p>
+          </div>
+          <div className="bg-white rounded-card border border-line p-3 text-center">
+            <p className="text-2xl font-bold text-muted">
+              {properties.filter(p => p.status === 'draft').length}
+            </p>
+            <p className="text-xs text-muted">Draft</p>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-4 overflow-x-auto border-b border-line">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => setTab(t.value)}
+              className={`px-4 py-2 text-sm whitespace-nowrap transition ${
+                tab === t.value
+                  ? 'border-b-2 border-signal text-signal font-semibold'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
+              {t.label}
+              <span className="ml-1 text-xs text-muted">
+                ({properties.filter(p => t.value === 'all' || p.status === t.value).length})
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {loading ? (
+          <div className="text-center text-muted py-8">Loading properties...</div>
+        ) : filteredProperties.length === 0 ? (
+          <div className="text-center py-12">
+            <Home className="w-12 h-12 text-muted mx-auto mb-3" />
+            <p className="text-muted">No properties found</p>
+            <p className="text-sm text-muted mt-1">Click "Add Property" to list your first property</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredProperties.map((property) => (
+              <div key={property.id} className="relative">
+                <PropertyCard property={property} />
+                <div className="absolute top-2 left-2 flex items-center gap-1 bg-white px-2 py-0.5 rounded-full shadow-md">
+                  {getStatusIcon(property.status)}
+                  <span className="text-xs capitalize">{property.status}</span>
+                </div>
+                <button
+                  onClick={() => handleDelete(property.id)}
+                  className="absolute top-2 right-14 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <AddPropertyModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onSubmit={handleAddProperty}
+      />
+
+      <BottomNav />
+    </ProtectedRoute>
+  )
+}
