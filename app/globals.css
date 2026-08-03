@@ -24,7 +24,6 @@ input, textarea, select {
   @apply bg-rust text-white px-6 py-2 rounded-card hover:bg-red-700 transition;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -43,7 +42,6 @@ input, textarea, select {
   background: #a8a8a8;
 }
 
-/* Safe area padding for notched phones */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
