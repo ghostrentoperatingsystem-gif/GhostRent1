@@ -40,7 +40,7 @@ export async function middleware(request) {
 
   const { data } = await supabase.auth.getSession()
 
-  const publicRoutes = ['/login', '/signup', '/reset-password', '/update-password']
+  const publicRoutes = ['/login', '/signup', '/reset-password', '/update-password', '/debug']
   const isPublicRoute = publicRoutes.some(route => request.nextUrl.pathname.startsWith(route))
   const isApiRoute = request.nextUrl.pathname.startsWith('/api')
 
