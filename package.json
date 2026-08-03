@@ -2,11 +2,27 @@
   "name": "ghostrent-os",
   "version": "1.0.0",
   "private": true,
+  "description": "GhostRent web app",
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ghostrentoperatingsystem-gif/GhostRent1.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ghostrentoperatingsystem-gif/GhostRent1/issues"
+  },
+  "homepage": "https://github.com/ghostrentoperatingsystem-gif/GhostRent1#readme",
+  "engines": {
+    "node": ">=18.16.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "format": "prettier --write .",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
@@ -25,6 +41,8 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.4"
+    "eslint-config-next": "14.2.4",
+    "prettier": "^2.8.8",
+    "typescript": "^5.6.2"
   }
 }
