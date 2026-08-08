@@ -1,0 +1,314 @@
+// lib/pollFlows.js
+
+export const UNLOCK_FEE = 99
+
+export const POLL_FLOWS = {
+  1: {
+    message: "👋 I'm interested in this property.",
+    responder: "tenant",
+    options: [
+      {
+        label: "I'm interested",
+        value: "interested",
+        nextStep: 2,
+      },
+    ],
+  },
+
+  2: {
+    message: "Great! Thanks for your interest.",
+    responder: "landlord",
+    options: [
+      {
+        label: "✅ Continue",
+        value: "continue",
+        nextStep: 3,
+      },
+      {
+        label: "❌ Decline",
+        value: "decline",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  3: {
+    message: "Are you still interested?",
+    responder: "tenant",
+    options: [
+      {
+        label: "Yes, I'm still interested",
+        value: "still_interested",
+        nextStep: 4,
+      },
+      {
+        label: "I've changed my mind",
+        value: "changed_mind",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  4: {
+    message: "Would you like to continue with this enquiry?",
+    responder: "landlord",
+    options: [
+      {
+        label: "✅ Yes",
+        value: "yes",
+        nextStep: 5,
+      },
+      {
+        label: "❌ No",
+        value: "no",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  5: {
+    message: "Would you like to request direct contact?",
+    responder: "tenant",
+    options: [
+      {
+        label: "I'd like to request direct contact",
+        value: "request_contact",
+        nextStep: 6,
+      },
+      {
+        label: "Maybe later",
+        value: "maybe_later",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  6: {
+    message:
+      "I agree to continue. Contact details will only be unlocked after both required payments are confirmed.",
+    responder: "landlord",
+    options: [
+      {
+        label: "✅ Yes, proceed",
+        value: "agree_to_pay",
+        nextStep: "payment",
+      },
+      {
+        label: "Not now",
+        value: "not_now",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  payment: {
+    message:
+      "🔐 Contact details are locked. Both the tenant and landlord must complete the R99 unlock payment.",
+    responder: "both",
+
+    tenantOptions: [
+      {
+        label: `💳 Pay R${UNLOCK_FEE} Unlock Fee`,
+        value: "tenant_pay",
+        nextStep: "tenant_payment_pending",
+      },
+      {
+        label: "Cancel",
+        value: "tenant_cancel",
+        nextStep: "end",
+      },
+    ],
+
+    landlordOptions: [
+      {
+        label: `💳 Pay R${UNLOCK_FEE} Unlock Fee`,
+        value: "landlord_pay",
+        nextStep: "landlord_payment_pending",
+      },
+      {
+        label: "Cancel",
+        value: "landlord_cancel",
+        nextStep: "end",
+      },
+    ],
+  },
+
+  tenant_payment_pending: {
+    message:
+      "⏳ Tenant payment is being processed. Contact remains locked until the payment is verified.",
+    responder: "tenant",
+    options: [],
+  },
+
+  landlord_payment_pending: {
+    message:
+      "⏳ Landlord payment is being processed. Contact remains locked until the payment is verified.",
+    responder: "landlord",
+    options: [],
+  },
+
+  both_paid: {
+    message:
+      "✅ Both payments have been confirmed. Contact details can now be unlocked.",
+    responder: "both",
+    options: [],
+  },
+
+  unlocked: {
+    message: "🔓 Contact Unlocked!",
+    responder: "both",
+    options: [],
+  },
+
+  end: {
+    message: "This enquiry has ended.",
+    responder: "both",
+    options: [],
+  },
+}
+
+/**
+ * Get the available options for the current user.
+ */
+export function getOptions(step, role) {
+  const flow = POLL_FLOWS[step]
+
+  if (!flow) return []
+
+  if (role === "tenant" && flow.tenantOptions) {
+    return flow.tenantOptions
+  }
+
+  if (role === "landlord" && flow.landlordOptions) {
+    return flow.landlordOptions
+  }
+
+  return flow.options || []
+}
+
+/**
+ * Get the next step after a user's choice.
+ */
+export function getNextStep(currentStep, choice, role) {
+  const flow = POLL_FLOWS[currentStep]
+
+  if (!flow) {
+    return "end"
+  }
+
+  const options = getOptions(currentStep, role)
+
+  const selectedOption = options.find(
+    (option) => option.value === choice
+  )
+
+  if (!selectedOption) {
+    return "end"
+  }
+
+  return selectedOption.nextStep
+}
+
+/**
+ * Check whether this is the payment stage.
+ */
+export function isPaymentStep(step) {
+  return step === "payment"
+}
+
+/**
+ * Check whether the tenant has paid.
+ */
+export function hasTenantPaid(tenantPaymentStatus) {
+  return tenantPaymentStatus === "succeeded"
+}
+
+/**
+ * Check whether the landlord has paid.
+ */
+export function hasLandlordPaid(landlordPaymentStatus) {
+  return landlordPaymentStatus === "succeeded"
+}
+
+/**
+ * Contact can ONLY be unlocked after both payments succeed.
+ */
+export function canUnlockContact(
+  tenantPaymentStatus,
+  landlordPaymentStatus
+) {
+  return (
+    hasTenantPaid(tenantPaymentStatus) &&
+    hasLandlordPaid(landlordPaymentStatus)
+  )
+}
+
+/**
+ * Get the payment status for the conversation.
+ */
+export function getPaymentState(
+  tenantPaymentStatus,
+  landlordPaymentStatus
+) {
+  const tenantPaid = hasTenantPaid(tenantPaymentStatus)
+  const landlordPaid = hasLandlordPaid(landlordPaymentStatus)
+
+  if (tenantPaid && landlordPaid) {
+    return "both_paid"
+  }
+
+  if (tenantPaid && !landlordPaid) {
+    return "landlord_payment_required"
+  }
+
+  if (!tenantPaid && landlordPaid) {
+    return "tenant_payment_required"
+  }
+
+  return "both_payment_required"
+}
+
+/**
+ * Only the server/database should ultimately decide
+ * whether contact is unlocked.
+ */
+export function getContactUnlockState(
+  tenantPaymentStatus,
+  landlordPaymentStatus
+) {
+  if (
+    canUnlockContact(
+      tenantPaymentStatus,
+      landlordPaymentStatus
+    )
+  ) {
+    return "unlocked"
+  }
+
+  return "locked"
+}
+
+/**
+ * Check whether the flow has ended.
+ */
+export function isEndStep(step) {
+  return step === "end"
+}
+
+/**
+ * Check whether contact has been unlocked.
+ */
+export function isUnlockedStep(step) {
+  return step === "unlocked"
+}
+
+/**
+ * Get who should respond at a particular step.
+ */
+export function getResponder(step) {
+  const flow = POLL_FLOWS[step]
+
+  if (!flow) return null
+
+  return flow.responder
+}
